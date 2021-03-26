@@ -1,0 +1,41 @@
+#Instal ermineJ
+#install.packages("remotes")
+#remotes::install_github("PavlidisLab/ermineR")
+
+##1. GO term list input ##
+goAnnots<-read.table("/path_to/gotermlist_Aedes.txt", sep="\t", header=T)
+goAnnots<-as.data.frame(goAnnots)
+head(goAnnots)
+summary(goAnnots)
+
+##2.Create GOterm list with gene_ID ##
+GOList <- split(goAnnots[,2],goAnnots$names)
+library("ermineR")
+annotationList <- makeAnnotation(GOList,return = T)
+summary(annotationList)
+
+##3. Extract logFC values from tt generated in EdgeR and create Score list ##
+detags <- rownames(tt$table)
+detags
+head(tt$table)
+scoreListFC <- as.data.frame(abs(tt$table$logFC))
+head(scoreListFC)
+rownames(scoreListFC) <- detags
+head(scoreListFC)
+
+library(rJava)
+
+##3. GSR based on logFC for Biological process (aspects = B)
+ermineR(annotation = annotationList, expression = NULL, aspects = "B",
+        scores = scoreListFC, scoreColumn = 1, logTrans = F, bigIsBetter = T,
+        test = "GSR", pAdjust = "FDR", iterations = 200000, geneReplicates = "mean", stats = "mean",
+        return = F, minClassSize = 10, maxClassSize = 200,
+        output = "/Users/JoseManuel/Desktop/GSR_LogFc_PB.txt")
+
+##4. GSR based on logFC for Molecular Function (aspects = M)
+ermineR(annotation = annotationList, expression = NULL, aspects = "M",
+        scores = scoreListFC, scoreColumn = 1, logTrans = F, bigIsBetter = T,
+        test = "GSR", pAdjust = "FDR", iterations = 200000, geneReplicates = "mean", stats = "mean",
+        return = F, minClassSize = 10, maxClassSize = 200,
+        output = "/Users/JoseManuel/Desktop/GSR_LogFc_FM.txt")
+
