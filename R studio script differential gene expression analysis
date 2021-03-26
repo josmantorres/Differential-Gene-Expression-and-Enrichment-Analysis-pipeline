@@ -1,0 +1,57 @@
+library("edgeR")
+
+##1. INPUT DATA##
+
+samples = read.delim("/path_to/Counts.txt", sep="\t", header=TRUE)
+rnames <- samples [,1] 
+samples_matrix <-data.matrix(samples[,2:ncol(samples)]) 
+rownames(samples_matrix) <- rnames 
+group <- c(1,1,1,1,2,2,2,2)  #1 = control  #2 = treated
+
+##2. CREATING DGEList OBJECT##
+
+y <- DGEList(counts=samples_matrix, group=group) 
+y <- calcNormFactors(y,method="TMM")
+
+##3. DATA EXPLORATION## 
+
+plotMDS(y, method="logFC", gene.selection = "common", pch=c(0,1,2,5,15,16,17,18))
+levels <-(c("Control1","Control2","Control3","Control4","Treated1","Treated2","Treated3","Treated4"))
+points <- c(0,1,2,5,15,16,17,18)
+legend("top", legend=levels, pch=points, ncol=2)
+title(main="Multi-dimensional scaling plot (LogFc method)")
+
+##4. GENE EXPRESSION ANALYSIS BASED ON GLM ## 
+
+design <- model.matrix(~group)
+y <- estimateDisp(y,design,verbose=TRUE)
+#There are testing methods:
+#1- Likelihood ratio test (glmLRT) uses the tagwise NB dispersion to fit a GLM. For experiments without replicates, few replicates and/or high dispersion
+#2- quasi-likelihood F-tests (glmQLF) uses the trended NB dispersion to fit a GLM, and then estimates the QL dispersion from the deviance. It doesn't re-estimate the NB dispersion but instead estimates an entirely different QL dispersion for each gene.
+
+# Selected: quasi-likelihood F-tests (qlft) 
+
+fit <- glmQLFit(y,design, robust=TRUE) 
+
+#edgeR offers a rigorous statistical test for thresholded hypotheses under the GLM framework.It is analogous to TREAT [23] but much more powerful than the original TREAT method.
+#Note that the fold-change threshold inglmTreat()is not the minimum value of the fold-changeexpected to see from the testing results. Genes will need to exceed this threshold by someway before being declared statistically significant. It is better to interpret the threshold as"the fold-change below which we are definitely not interested in the gene" rather than "thefold-change above which we are interested in the gene
+
+qlf<- glmTreat(fit, coef=2, lfc=1) #lfc=1 as threshold = 2 Fold change
+
+#Filtering low or highly variable genes
+library (HTSFilter)
+qlf_filtered <- HTSFilter(qlf, DGEGLM=fit, s.len=100, plot=TRUE)$filteredData #s.len=number of modelizations
+dim(qlf_filtered)
+
+#Identification of Differentially expressed genes
+tt <- topTags(qlf_filtered, n=Inf,  adjust.method="BH", sort.by="PValue")
+names(tt$table)
+write.csv(tt$table, file="/out_table/GLM-QLFtest.txt")
+summary(de <- decideTestsDGE(qlf_filtered))
+
+#Volcano Plot
+plotMD(qlf_filtered, main="",cex = 0.5)
+abline(h=c(-1,1), col="blue")   
+title(main="Oil effect")
+
+
