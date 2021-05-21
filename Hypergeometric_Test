@@ -1,0 +1,8 @@
+library(Category)
+
+assayed <- unlist(assayed_target_family) # All IDs of the target family identified in the genome
+sigsets <- unlist(significant_target_family) # IDs of the target family identified as differentially expresssed
+universe <- unlist(universe) # All gene IDs from the genome that have associated a PFAM domain
+
+results <- hyperg(assayed, sigsets, universe)
+write.table(results, "Results.txt", sep="\t", quote=T)
